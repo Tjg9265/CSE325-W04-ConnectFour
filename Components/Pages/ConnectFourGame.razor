@@ -1,0 +1,152 @@
+
+@page "/connect-four"
+@rendermode InteractiveServer
+@inject GameState State
+@using System.Drawing
+
+<PageTitle>Connect Four</PageTitle>
+
+<h1>Connect Four</h1>
+
+<p>@message</p>
+
+<div class="column-buttons">
+    @for (int col = 0; col < 7; col++)
+    {
+        int selectedColumn = col;
+
+        <button class="column-button"
+                disabled="@gameOver"
+                @onclick="() => PlayPiece(selectedColumn)">
+            🔽
+        </button>
+    }
+</div>
+
+
+<div class="game-board"
+     style="@($"--board-bg: {ColorTranslator.ToHtml(BoardColor)}; --player1: {ColorTranslator.ToHtml(Player1Color)}; --player2: {ColorTranslator.ToHtml(Player2Color)};")">
+
+    @for (int row = 0; row < 6; row++)
+    {
+        @for (int col = 0; col < 7; col++)
+        {
+            <div class="game-cell @GetPieceClass(row, col)"></div>
+        }
+    }
+</div>
+
+<br />
+
+<button class="btn btn-primary" @onclick="ResetGame">
+    New Game
+</button>
+
+<div class="move-history mt-4">
+    <h3>Move History</h3>
+
+    @if (moveHistory.Count == 0)
+    {
+        <p>No moves yet.</p>
+    }
+    else
+    {
+        <ol>
+            @foreach (var move in moveHistory)
+            {
+                <li>@move</li>
+            }
+        </ol>
+    }
+</div>
+
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p class="text-danger">@errorMessage</p>
+}
+
+@code {
+    private int[,] board = new int[6, 7];
+    private List<string> moveHistory = new();
+    private string message = "Player 1's turn (Red)";
+    private string errorMessage = "";
+    private bool gameOver = false;
+    [Parameter]
+    public Color BoardColor { get; set; } = ColorTranslator.FromHtml("#2156B8");
+
+    [Parameter]
+    public Color Player1Color { get; set; } = Color.Red;
+
+    [Parameter]
+    public Color Player2Color { get; set; } = Color.Yellow;
+
+    protected override void OnInitialized()
+    {
+        ResetGame();
+    }
+
+    private void PlayPiece(int col)
+    {
+        if (gameOver)
+            return;
+
+        errorMessage = "";
+
+        try
+        {
+            int player = State.PlayerTurn;
+            byte landingRow = State.PlayPiece((byte)col);
+
+            board[landingRow, col] = player;
+            moveHistory.Add($"Player {player} - Column {col + 1}");
+
+            var result = State.CheckForWin();
+
+            if (result == GameState.WinState.Player1_Wins)
+            {
+                message = "Player 1 (Red) wins!";
+                gameOver = true;
+            }
+            else if (result == GameState.WinState.Player2_Wins)
+            {
+                message = "Player 2 (Yellow) wins!";
+                gameOver = true;
+            }
+            else if (result == GameState.WinState.Tie)
+            {
+                message = "It's a tie!";
+                gameOver = true;
+            }
+            else
+            {
+                message = $"Player {State.PlayerTurn}'s turn " +
+                    (State.PlayerTurn == 1 ? "(Red)" : "(Yellow)");
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetPieceClass(int row, int col)
+    {
+        return board[row, col] switch
+        {
+            1 => "red-piece",
+            2 => "yellow-piece",
+            _ => ""
+        };
+    }
+
+    private void ResetGame()
+    {
+        State.ResetBoard();
+        board = new int[6, 7];
+        gameOver = false;
+        errorMessage = "";
+        message = "Player 1's turn (Red)";
+        moveHistory.Clear();
+    }
+}
